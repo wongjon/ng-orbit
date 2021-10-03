@@ -7,16 +7,11 @@ The goal of our project is to develop a concept of operations and design a proto
 ## Autonomous/Vision
 This folder contains the autonomous/vision subteam's software. It includes computer vision, pose estimation and robotic control.
 
-## Grappling
-This folder contains the grappling subteam's software. This includes the firmware for the grappler controllers.
-
-## Servicing
-This folder contains the servicing subteam's software. This includes the firmware for the servicing controllers.
+## Attachment
+This folder contains software/CAD for the attachment team.
 
 ## Installation
 <br>
 <br>
 
-## Further Documentation & References
-* Astrobee Gripper: https://github.com/StanfordASL/astrobee_gripper 
 
