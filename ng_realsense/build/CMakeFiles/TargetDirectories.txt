@@ -1,0 +1,3 @@
+/home/andrew/Desktop/ng_realsense/build/CMakeFiles/rebuild_cache.dir
+/home/andrew/Desktop/ng_realsense/build/CMakeFiles/edit_cache.dir
+/home/andrew/Desktop/ng_realsense/build/CMakeFiles/ng_realsense_project.dir
