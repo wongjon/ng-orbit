@@ -18,12 +18,12 @@ int main(int argc, char * argv[]) try
 
     rs2::context ctx;
     rs2::pipeline pipe;
-    /*
+    
     bool depth_found = false;
     bool color_found = false;
     rs2::sensor depth_sensor;
     rs2::sensor color_sensor;
-
+    /*
     for (auto&& dev : ctx.query_devices()){
         auto advanced_dev = dev.as<rs400::advanced_mode>();
         auto advanced_sensors = advanced_dev.query_sensors();
@@ -43,13 +43,15 @@ int main(int argc, char * argv[]) try
 
     color_sensor.set_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, 0);
     color_sensor.set_option(RS2_OPTION_EXPOSURE, 4000);
+    */
+    cfg.enable_stream(RS2_STREAM_DEPTH, -1, 640, 480, RS2_FORMAT_Z16, 30);
+    cfg.enable_stream(RS2_STREAM_COLOR, -1, 640, 480, RS2_FORMAT_BGR8 , 30);
 
-    cfg.enable_stream(RS2_STREAM_DEPTH, -1, 848, 480, RS2_FORMAT_Z16, 10);
-    cfg.enable_stream(RS2_STREAM_COLOR, -1, 1280, 720, RS2_FORMAT_BGR8 , 10);
 
+    pipe.start(cfg);
+    // pipe.start();
 
-    pipe.start(cfg);*/
-    pipe.start();
+    auto threshold_filter = rs2::threshold_filter(0.78f, 1.2f);
     auto frames = pipe.wait_for_frames();
     auto color = frames.get_color_frame();
     if (!color)
@@ -58,12 +60,13 @@ int main(int argc, char * argv[]) try
     pc.map_to(color);
 
     auto depth = frames.get_depth_frame();
+    auto filtered_depth = threshold_filter.process(depth);
 
-    points = pc.calculate(depth);
+    points = pc.calculate(filtered_depth);
 
-    points.export_to_ply("test.ply", color);
+    points.export_to_ply("roomwithbox.ply", color);
 
-    auto cloud_ptr = open3d::io::CreatePointCloudFromFile("test.ply");
+    auto cloud_ptr = open3d::io::CreatePointCloudFromFile("roomwithbox.ply");
     open3d::visualization::DrawGeometries({cloud_ptr}, "TestPLYFileFormat", 1920, 1080);
 
     // auto cloud_ptr2 = open3d::io::CreatePointCloudFromFile("Box1.PLY");

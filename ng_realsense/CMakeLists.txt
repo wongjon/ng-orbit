@@ -26,6 +26,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 # Add the application sources to the target
+# add_executable(${PROJECT_NAME} multiway-registration.cpp)
+# add_executable(${PROJECT_NAME} pointcloud_test.cpp)
 add_executable(${PROJECT_NAME} icp_implementation.cpp)
 
 # Link librealsense2 to the target

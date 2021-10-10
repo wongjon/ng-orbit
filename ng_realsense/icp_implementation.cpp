@@ -22,78 +22,103 @@ int main(int argc, char * argv[]) try
     rs2::context ctx;
     rs2::pipeline pipe;
 
-    open3d::geometry::PointCloud pointcloud_1;
-    open3d::geometry::PointCloud pointcloud_2;
+    open3d::geometry::PointCloud pc1;
+    open3d::geometry::PointCloud pc2;
 
-    open3d::io::ReadPointCloud("roomwithbox.ply", pointcloud_1);
-    open3d::io::ReadPointCloud("Box1.PLY", pointcloud_2);
-
-    std::cout << "finished reading pointclouds" << std::endl;
-    std::cout << "begin preprocessing" << std::endl;
-
-    auto pointcloud_nonoutlier = pointcloud_1.RemoveStatisticalOutliers(100, 2.0);
-    pointcloud_1 = *(std::get<0>(pointcloud_nonoutlier));
-
-    auto voxel_ds = 0.02;
-    auto pc1_down = *pointcloud_1.VoxelDownSample(voxel_ds);
-
-    auto sp1 = std::make_shared<open3d::geometry::PointCloud>(pc1_down);
-    // open3d::visualization::DrawGeometries({sp1}, "Downsampled", 1920, 1080);
-
-
-    pc1_down.EstimateNormals();
-    pointcloud_1.EstimateNormals();
-    pointcloud_2.EstimateNormals();
-
-    // auto pointcloud_1fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pointcloud_1);
-    auto pc1_down_fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pc1_down);
-    auto pointcloud_2fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pointcloud_2);
-
-    auto pointpointdist = pc1_down.ComputePointCloudDistance(pointcloud_2);
-    std::cout << std::accumulate(pointpointdist.begin(), pointpointdist.end(), 0)/pointpointdist.size() << std::endl;
-    std::cout << pc1_down.ComputePointCloudDistance(pointcloud_2).at(10) << std::endl;
-
-    std::cout << "begin RANSAC based on feature matching" << std::endl;
-
-
-    auto distance_threshold = 1000;
-    std::vector<std::reference_wrapper<const open3d::pipelines::registration::CorrespondenceChecker>> checkers;
-    // auto basedonlength = open3d::pipelines::registration::CorrespondenceCheckerBasedOnEdgeLength(0.9);
-    auto basedondistance = open3d::pipelines::registration::CorrespondenceCheckerBasedOnDistance(distance_threshold);
-    // checkers.push_back(basedonlength);
-    checkers.push_back(basedondistance);
-
-    auto result_RANSAC = open3d::pipelines::registration::RegistrationRANSACBasedOnFeatureMatching(pc1_down, pointcloud_2, *pc1_down_fpfh, *pointcloud_2fpfh, true, distance_threshold, open3d::pipelines::registration::TransformationEstimationPointToPoint(false), 3.0, checkers);
-
-    std::cout << "finished RANSAC" << std::endl;
-    std::cout << result_RANSAC.transformation_ << std::endl;
+    open3d::io::ReadPointCloud("roomwithbox.ply", pc2);
+    open3d::io::ReadPointCloud("Box.ply", pc1);
 
     Eigen::Vector3d center;
     center << 0.0, 0.0, 0.0;
-    pointcloud_2.Scale(0.0006, center);
-    
-    auto threshold = 0.5;
-    auto trans_init = result_RANSAC.transformation_;
+    pc1.Scale(1000, center);
 
-    auto reg_p2l = open3d::pipelines::registration::RegistrationICP(pointcloud_2, pointcloud_1, threshold, trans_init, open3d::pipelines::registration::TransformationEstimationPointToPlane());
+    // remove outliers from pc1
+    // auto pointcloud_nonoutlier = pointcloud_1.RemoveStatisticalOutliers(100, 2.0);
+    // pointcloud_1 = *(std::get<0>(pointcloud_nonoutlier));
+
+    // downsize pc1
+    auto voxel_ds = 0.02;
+    auto pc2_down = *pc2.VoxelDownSample(voxel_ds);
+
+    // auto sp1 = std::make_shared<open3d::geometry::PointCloud>(pc1);
+    // auto sp2 = std::make_shared<open3d::geometry::PointCloud>(pc2);
+    // open3d::visualization::DrawGeometries({sp1, sp2}, "Raw", 1920, 1080);
+
+    // estimate normals for the pointclouds
+    pc2_down.EstimateNormals();
+    pc1.EstimateNormals();
+    pc2.EstimateNormals();
+
+    auto pc1_fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pc1);
+    auto pc2_fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pc2);
+    auto pc2_down_fpfh = open3d::pipelines::registration::ComputeFPFHFeature(pc2_down);
+
+    // auto pointpointdist = pc1_down.ComputePointCloudDistance(pointcloud_2);
+    // std::cout << std::accumulate(pointpointdist.begin(), pointpointdist.end(), 0)/pointpointdist.size() << std::endl;
+    std::cout << "Number of points in box pc: " << pc1.points_.size() << std::endl;
+    std::cout << "Number of points in room pc: " << pc2.points_.size() << std::endl;
+    // std::cout << "Number of points in downsampled room pc: " << pc2_down.points_.size() << std::endl;
+    // std::cout << pc1_down.ComputePointCloudDistance(pointcloud_2).at(10) << std::endl;
+    // std::cout << pc2.points_.at(10) << std::endl;
+
+    std::cout << pc2.points_.at(10) << std::endl;
+    for (int i = 0; i < pc2.points_.size(); i++){
+        if (pc2.points_.at(i)[0] > 0.3){ //left right
+            pc2.points_.at(i) << 0, 0, 0;
+        } else if (pc2.points_.at(i)[0] < -0.2){
+            pc2.points_.at(i) << 0, 0, 0;
+        }
+    }
     
-    pointcloud_2.Transform(reg_p2l.transformation_);
-    std::cout << reg_p2l.fitness_ << std::endl;
+    std::cout << "starting RANSAC" << std::endl;
+    
+    // RANSAC global registration
+    auto distance_threshold = 1;
+    // std::vector<std::reference_wrapper<const open3d::pipelines::registration::CorrespondenceChecker>> checkers;
+    // auto basedonlength = open3d::pipelines::registration::CorrespondenceCheckerBasedOnEdgeLength(0.9);
+    // auto basedondistance = open3d::pipelines::registration::CorrespondenceCheckerBasedOnDistance(distance_threshold);
+    // checkers.push_back(basedonlength);
+    // checkers.push_back(basedondistance);
+
+    // open3d::pipelines::registration::RANSACConvergenceCriteria ransac_criteria;
+    // auto result_RANSAC = open3d::pipelines::registration::RegistrationRANSACBasedOnFeatureMatching(pointcloud_1, pc2_down, *pointcloud_1fpfh, *pc2_down_fpfh, true, distance_threshold, open3d::pipelines::registration::TransformationEstimationPointToPoint(false), 10000);
+    
+
+    auto result_RANSAC = open3d::pipelines::registration::RegistrationRANSACBasedOnFeatureMatching(pc1, pc2, *pc1_fpfh, *pc2_fpfh, true, distance_threshold, open3d::pipelines::registration::TransformationEstimationPointToPoint(false), 1000);
+
+    // output 4x4 matrix for rotation/translation 
+    std::cout << result_RANSAC.transformation_ << std::endl;
+    open3d::io::WritePointCloudToPLY("transformedbox.ply", pc1.Transform(result_RANSAC.transformation_), open3d::io::WritePointCloudOption());
+    open3d::io::WritePointCloudToPLY("transformedroom.ply", pc2, open3d::io::WritePointCloudOption());
+    auto cloud_ptr1 = open3d::io::CreatePointCloudFromFile("transformedroom.ply");
+    auto cloud_ptr2 = open3d::io::CreatePointCloudFromFile("transformedbox.ply");
+    open3d::visualization::DrawGeometries({cloud_ptr1, cloud_ptr2}, "Global Registration", 1920, 1080);
+
+    // point to plane ICP 
+    // auto threshold = 2*voxel_ds;
+    // auto trans_init = result_RANSAC.transformation_;
+    
+    std::cout << "starting ICP" << std::endl;
+
+    open3d::pipelines::registration::ICPConvergenceCriteria icp_criteria;
+    icp_criteria.max_iteration_ = 2000;
+    auto reg_p2l = open3d::pipelines::registration::RegistrationICP(pc1, pc2, 0.15, Eigen::Matrix4d::Identity(), open3d::pipelines::registration::TransformationEstimationPointToPoint(false), icp_criteria);
+    
+    pc1.Transform(reg_p2l.transformation_);
+
+
+    // pointcloud_2.Transform(result_RANSAC.transformation_);
+
+    // pointpointdist = pc1_down.ComputePointCloudDistance(pointcloud_2);
+    // std::cout << std::accumulate(pointpointdist.begin(), pointpointdist.end(), 0)/pointpointdist.size() << std::endl;
     std::cout << reg_p2l.transformation_ << std::endl;
 
-    pointpointdist = pc1_down.ComputePointCloudDistance(pointcloud_2);
-    std::cout << std::accumulate(pointpointdist.begin(), pointpointdist.end(), 0)/pointpointdist.size() << std::endl;
+    open3d::io::WritePointCloudToPLY("transformedroom.ply", pc2, open3d::io::WritePointCloudOption());
+    open3d::io::WritePointCloudToPLY("transformedbox.ply", pc1, open3d::io::WritePointCloudOption());
 
-    Eigen::Vector3d color; 
-    color << 0.22, 1.0, 0.08;
-    pointcloud_2.PaintUniformColor(color);
-
-    open3d::io::WritePointCloudToPLY("transformedbox.ply", pointcloud_2, open3d::io::WritePointCloudOption());
-
-
-    auto cloud_ptr1 = open3d::io::CreatePointCloudFromFile("roomwithbox.ply");
-    auto cloud_ptr2 = open3d::io::CreatePointCloudFromFile("transformedbox.ply");
-    open3d::visualization::DrawGeometries({cloud_ptr1, cloud_ptr2}, "TestPLYFileFormat", 1920, 1080);
+    cloud_ptr1 = open3d::io::CreatePointCloudFromFile("transformedroom.ply");
+    cloud_ptr2 = open3d::io::CreatePointCloudFromFile("transformedbox.ply");
+    open3d::visualization::DrawGeometries({cloud_ptr1, cloud_ptr2}, "Local Registration", 1920, 1080);
     
     return EXIT_SUCCESS;
 }
